@@ -33,7 +33,7 @@ profiles <- read_csv(file="profiles.csv")
 Please indicate
 
 * Who you collaborated with: none
-* Roughly how much time you spent on this HW so far: 7 hours
+* Roughly how much time you spent on this HW so far: 10 hours
 * The URL of the RPubs published URL [here](http://rpubs.com/anarciso/HW-2).
 * What gave you the most trouble: fct_reorder, deciding what exactly to investigate
 * Any comments you have:
@@ -97,134 +97,159 @@ no_income_report_graph <- ggplot(data = no_income_report_by_sex_age,
        x = "Age", y = "Percent Income Reported")
 no_income_report_graph
 
-# Gender and Income Table
-# only including individuals that reported an income 
-# and realistic ages (18-70)
-gender_income_clean <- gender_income %>%
-  filter(!(income == -1)) %>%
-  filter((age > 18) & (age < 70)) 
-# gender_income_clean
-
 # Age by income w/ 5 year intervals
 # but discludes incomes greater than 200,000
-age_by_income <- gender_income_clean %>% 
-  mutate(five_year_age_range = floor(age/5)*5) %>%
-  filter(income <= 200000)
+# age_by_income <- gender_income_clean %>% 
+#   mutate(five_year_age_range = floor(age/5)*5) %>%
+#   filter(income <= 200000)
 
 # FIGURE 3: Boxplot comparing incomes of men and women by age
 
-age_by_income_boxplot_clean <- age_by_income %>% 
-  ggplot(data = ., aes(x = as.factor(five_year_age_range), 
-                                    y = income, color = sex)) +
-  geom_boxplot() +
-  labs(title = "Figure 3: Ages of Individuals and their Respective Incomes",
-       x = "Age (the number indicated represents that age + 4.99 years )", 
-       y = "Income")
-age_by_income_boxplot_clean
+# age_by_income_boxplot_clean <- age_by_income %>% 
+#   ggplot(data = ., aes(x = as.factor(five_year_age_range), 
+#                                     y = income, color = sex)) +
+#   geom_boxplot() +
+#   labs(title = "Figure 3: Ages of Individuals and their Respective Incomes",
+#        x = "Age (the number indicated represents that age + 4.99 years )", 
+#        y = "Income")
+# age_by_income_boxplot_clean
 
+# HW2 UPDATE: ADD HISTOGRAM FOR EACH INCOME
+# turn income categories into several categories --> then compare m vs f
+# e.g. no reply, low income, middle, high THEN m vs f (run group by, summarise mean)
+# thus, predictor
 
-# Run analysis on people who reported extreme incomes, 
+# Income Group by Gender Table (Count)
+income_group <- gender_income %>% 
+  mutate(income_cat = ifelse(income == -1, "no_reply", 
+                         ifelse(income < 50000, "low_income",
+                         ifelse((income >=50000) & (income <= 100000), 
+                                "mid_income", "high_income")))) %>% 
+  group_by(income_cat, sex) %>% 
+  summarise(num_individuals = n())
+  
+# FIGURE 3.1: Income Group by Gender Graph (Count)
+income_group_graph <- ggplot(data = income_group, 
+                                 aes(x = income_cat, y = num_individuals, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Figure 3.1: Gender Count per Income Category",
+       x = "Income Category",
+       y = "Number of People")
+income_group_graph
+
+# Income Group Proportions by Gender Table
+income_group_prop <- income_group %>% 
+  group_by(income_cat) %>% 
+  #mutate(prop = round(num_individuals/sum(num_individuals), 2))
+  mutate(sum_n = sum(num_individuals),
+         m_to_f_prop = num_individuals / sum_n) 
+# income_group_prop
+
+# Calculate the total ratio of males to females
+m_to_f_ratio <- gender_income %>%
+  group_by(sex) %>% 
+  tally() %>% 
+  mutate(ratio = n/sum(n))
+# m_to_f_ratio
+
+# FIGURE 3.2: Income Group by Gender Graph (Prop)
+income_group_prop_graph <- ggplot(data=income_group_prop, 
+                                 aes(x = fct_reorder(f = income_cat, x = m_to_f_prop), 
+                                     y = m_to_f_prop, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Figure 3.2: Proportion of Genders for Each Income Category",
+       x = "Income Category",
+       y = "Proportion of Male to Females") + 
+  geom_hline(yintercept=0.4023121)
+income_group_prop_graph
+# NOTE: the above shows how to calculate proportions within a table
+
 
 # 2. GENDER AND JOB
 
 gender_job <- profiles %>% 
   select(age, education, ethnicity, income, offspring, job, is_female, sex)
 
-# 2a. Gender, Job and Income
+# 2. Job and Freq of Each Gender
+job_gender_freq <- gender_job %>%
+  filter(!(is.na(sex)), !(is.na(job)), job != "other") %>%
+  group_by(job, sex) %>%
+  summarize(freq = n()) %>%
+  group_by(job) %>%
+  mutate(prop = freq/sum(freq))
 
-# FIGURE 4: Boxplot comparing incomes of men and women by job
-income_by_job_boxplot_clean <- age_by_income %>% 
-  ggplot(data = ., aes(x = sex, y = income, col = sex)) +
-  # ggplot(data = ., aes(x = fct_reorder(f = job, x = sex, fun = median, na.rm = TRUE), 
-  #                      y = income, col = sex)) +
-  geom_boxplot() +
-  facet_wrap(~job) + 
-  labs(title = "Figure 4: Income Difference Between Genders within Each Job Category")
-income_by_job_boxplot_clean
-# HOW TO: FCT_REORDER?!?!
+# FIGURE 4.1 : Proportion of Men & Women w/in Each Job Field
+job_gender_prop_graph <- ggplot(data = job_gender_freq, 
+                                aes(x = fct_reorder(job, prop), 
+                                    y = prop, fill = sex)) + 
+  geom_bar(stat = "identity", position="dodge") +
+  labs(title = "Figure 4: Proportion of Men and Women in the Different Fields",
+       x = "Profession Category", y = "Frequency") +
+  coord_flip() +
+  geom_hline(yintercept=0.4023121)
+job_gender_prop_graph
 
-# Figure 4: Option 2
-income_by_job_boxplot_clean2 <- age_by_income %>% 
-  ggplot(data = ., aes(x = fct_reorder(f = job, x = income, fun = median, na.rm = TRUE),
-                       y = income, col = sex)) +
-  geom_boxplot() +
-  #facet_wrap(~job) + 
-  labs(title = "Figure 4: Income Difference Between Genders within Each Job Category") +
-  coord_flip()
-income_by_job_boxplot_clean2
-
-# 2b. Job and Freq of Each Gender
-job_gender_freq <- gender_job %>% 
-  filter(!(is.na(sex)), !(is.na(job)), job != "other") %>% 
-  group_by(sex, job) %>% 
-  summarize(freq = n())
-# job_gender_freq 
-
-# FIGURE 5
+# FIGURE 4.1 : Number of Men & Women w/in Each Job Field
 job_gender_freq_graph <- ggplot(data = job_gender_freq, 
-                                aes(x = fct_reorder(job, freq), 
-                                    y = freq, col = sex)) + 
-  geom_bar(stat = "identity") +
-  labs(title = "Figure 5: Number of Men and Women in the Different Fields",
-       x = "Frequency", y = "Profession Category") +
-  coord_flip()
-# job_gender_freq_graph
+                                aes(x = fct_reorder(job, prop), 
+                                    y = freq, fill = sex)) + 
+  geom_bar(stat = "identity", position="dodge") +
+  labs(title = "Figure 4: Number of Men and Women in the Different Fields",
+       x = "Profession Category", y = "Frequency") +
+  coord_flip() +
+  geom_hline(yintercept=0.4023121)
+job_gender_freq_graph
 
 # 3. GENDER AND OFFSPRING
 
-has_kids_answers <- c("has a kid", "has kids", "has kids, but doesn&rsquo;t want more",
-        "has a kid, but doesn&rsquo;t want more", "has a kid, and wants more",
-        "has kids, and might want more", "has a kid, and might want more", 
-        "has kids, and wants more")
-
-wants_has_kids_answers <- c("has a kid", "has kids", "has kids, but doesn&rsquo;t want more",
+likes_kids <- c("has a kid", "has kids", "has kids, but doesn&rsquo;t want more",
         "has a kid, but doesn&rsquo;t want more", "has a kid, and wants more",
         "has kids, and might want more", "has a kid, and might want more", 
         "has kids, and wants more",
         "doesn&rsquo;t have kids, but might want them", "might want kids",
         "doesn&rsquo;t have kids, but wants them", "wants kids")
 
-# Creates table with new columns including if the individual has kids
-# or did not respond
-gender_job_offspring_clean <- gender_job %>% 
+# Gender and Offspring Averages for No Answer, Wants (/has) Kids and Doesn't Want Kids
+gender_offspring <- gender_job %>% 
   select(-age, -ethnicity, -education, -income) %>% 
-  mutate(
-    no_answer_kids = ifelse(is.na(offspring), 1, 0),
-    has_kids = ifelse(offspring %in% has_kids_answers, 1, 0),
-    wants_or_has_kids = ifelse(offspring %in% wants_has_kids_answers, 1, 0)
-  )
-# gender_job_offspring_clean
+  mutate(kids = ifelse(is.na(offspring), "no_ans", 
+                  ifelse(offspring %in% likes_kids, 
+                         "wants_kids", "doesnt_want_kids"))) %>% 
+  group_by(sex, kids) %>% 
+  tally() %>% 
+  ungroup() %>% 
+  group_by(kids) %>% 
+  mutate(sum_by_kids_response = sum(n),
+         prop = n/sum_by_kids_response) 
+# gender_offspring
 
-# Gender and Offspring Averages for Responses, Has Children and Wants or Has Children
-gender_offspring_avg <- gender_job_offspring_clean %>% 
-  group_by(sex) %>% 
-  summarise(avg_with_ans = (1 - mean(no_answer_kids)), 
-            avg_w_kids = mean(has_kids),
-            avg_wants_or_has_kids = mean(wants_or_has_kids)) %>% 
-  rename(gave_answer = avg_with_ans,
-         has_kids = avg_w_kids,
-         wants_or_has_kids = avg_wants_or_has_kids) %>% 
-  gather(key = avg_type, value = n, -sex) %>% 
-  rename(avg_num = n)
-# gender_offspring_avg
-
-# FIGURE 6; Graphs the Above
-gender_offspring_avg_graph <- ggplot(data = gender_offspring_avg, 
-                                     # aes(x = fct_reorder(f = avg_type, 
-                                     #                     x = sex, fun = mean, na.rm = TRUE), 
-                                     #     y = avg_num, col = sex)) +
-                                     aes(x = avg_type, y = avg_num, col = sex)) +
+# FIGURE 5.1: Graphs the Above (Prop)
+gender_kids_prop_graph <- ggplot(data = gender_offspring, 
+                                     aes(x = kids, y = prop, fill = sex)) +
   geom_bar(stat = "identity", position = "dodge") + 
-  labs(title = "Figure 6: Men vs. Women and their Responses Regarding Offspring", 
-      x = "Answer",
-      y = "Percentage")
-gender_offspring_avg_graph
+  labs(title = "Figure 5.1: Proportion of Men & Women and their Responses Regarding Offspring", 
+      x = "Response",
+      y = "Proportion of Individuals") + 
+  geom_hline(yintercept=0.4023121)
+gender_kids_prop_graph
+
+# FIGURE 5.2: Graphs the Above (Count)
+gender_kids_count_graph <- ggplot(data = gender_offspring, 
+                                     aes(x = kids, y = n, fill = sex)) +
+  geom_bar(stat = "identity", position = "dodge") + 
+  labs(title = "Figure 5.2: Number of Men & Women and their Responses Regarding Offspring", 
+      x = "Response",
+      y = "Number of Individuals")
+gender_kids_count_graph
+
+# !!!SHOW --> NUMBER OF PEOPLE THAT REPRESENT THE PROPORTION
+# CHANGE TO FILL
 
 # Lists offspring column options
-# offspring_options <- gender_job %>%
-#   group_by(offspring) %>%
-#   distinct()
-# offspring_options
+offspring_options <- gender_job %>%
+  group_by(offspring) %>%
+  distinct()
+offspring_options
 
 ```
 1. Gender and Income
@@ -233,16 +258,25 @@ Figure 1 shows that 12.9% of females reported an income, and 23.4% of males repo
 
 Figure 2 supports the correlation illustrated in Figure 1, wherein a greater percentage of males reported an income than females. Interestingly, Figure 2 shows that at the age of 30, there is a dip in the percentage of both males and females that reported an income. This could be because people are most insecure regarding their income at around age 30, fearing that they should be more successful and be earning more money at that point in their lives. I decided to disclude all individuals with a reported age greater than 70, as these did not represent the general trend of the data Additionally, there is a high likelyhood that the data for this group of people is made up, as the data is self-reported and there is a very low chance that people over the age of 70 are using this social platform.  
 
-Figure 3 represents the individuals that did report an income. Again, I discluded all individuals with a reported age of greater than 70. I also decided to disclude individuals that reported an income greater than $200000, as they are either anomalies that don't represent the general trend or people that are joking and simply lying on their profiles. I found that discluding these individuals did not change the trends in the data. This graph shows that men report a higher income than women within the same age group, throughout all ages. This could be because men do make more money than women, or because there is a greater social pressure for men to have a high salary and thus, they are more inclined to inflate their income on a dating site. 
+Figure 3.1 and 3.2 represent the individuals that did report an income. Figure 3.1 shows the number of males and females within each income category, and Figure 3.2 shows the proportion of males to females within each income category. In Figure 3.2, I added a y-intercept of 0.402, which represents the proportion of the population that is female. This gives a point of comparison, so that people reading the graph know how equal the proportions of men and women are within each income category. I chose to categorize individuals into the 4 following income groups: 
+no_reply: didn't report an income
+low_income: income < 50,000
+mid_income: 50,000 <= income <= 100,000
+high_income: income > 100,000
+Figure 3.2 shows that the higher the income, the greater proportion of men reported to be within that group. This could be because men do make more money than women, or because there is a greater social pressure for men to have a high salary and thus, they are more inclined to inflate their income on a dating site. 
+
 2. Gender and Job
 
-Figure 4 further breaks down the difference between males and females, by looking into the income difference within their respective job fields. In most job categories, males earn more money than females. This is especially prominent in banking / financial / real estate, executive / management, science / tech / engineering. 
-
-Figure 5 shows the number of men and women working in each of the job fields. The professions where women make up more than 50% of the work force include medicine / health, education / academia and clerical / administrative. 
+Figure 4.1 further breaks down the difference between males and females, by looking at the ratio of the sexes within each job field. Again, I added a line indicating the proportion of women within the sample population. Thus, any bars that fall short of the line represent job fields where women make up less than half of the population and vice versa. This graph shows that women are the majority in medicine / health, education / academia and clinical administrative, and overwhelmingly the minority in science / tech / engineering, computer/ hardware / software, construction / craftsmanship, transportation and the military. 
+Figure 4.2 shows the number of males and females within each job field. This provides a point of comparison allowing you to compare the number of people within each industry.
 
 3. Gender and Offspring
 
-Figure 6 shows the percentage of men and women that gave an answer regarding offspring, have children or want children. This shows that the proportion of people that belong to each category is relatively the same for both genders, except that women are shifted towards more children. Interestingly, there were less men than women that reported having children. Due to the limitations of the data, we cannot conclude if this is because less men than women have children, or if men think that children may be a deterrent to women and thus, would rather not give an answer.
+Figure 5.1 shows the proportion of men and women with respect to their answer regarding offspring, and Figure 5.2 shows the count. Again, I added the bar representing the proportion of women within the data set. I split the responses into 3 categories:
+no_ans: they did not give an answer
+wants_kids: they want, might want or already have kids
+doesnt_want_kids: they dont want or have kids
+Slightly more women than men don't want kids, an even greater proportion of women do want kids, but less women than men did not give a response. (in relation to 40% being the indication of a 50:50 split)
 
 ## Question 2:
 
